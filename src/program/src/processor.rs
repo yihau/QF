@@ -32,6 +32,9 @@ impl Processor {
         let vault_info = next_account_info(account_info_iter)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
+        if new_round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut round = Round::unpack_unchecked(&new_round_info.data.borrow())?;
         if round.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
@@ -62,7 +65,7 @@ impl Processor {
     }
 
     pub fn process_donate(
-        _program_id: &Pubkey,
+        program_id: &Pubkey,
         accounts: &[AccountInfo],
         amount: u64,
         decimals: u8,
@@ -75,6 +78,9 @@ impl Processor {
         let from_auth_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Ongoing {
             return Err(QFError::RoundStatusError.into());
@@ -111,7 +117,7 @@ impl Processor {
     }
 
     pub fn process_register_project(
-        _program_id: &Pubkey,
+        program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -120,11 +126,17 @@ impl Processor {
         let project_owner_info = next_account_info(account_info_iter)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Ongoing {
             return Err(QFError::RoundStatusError.into());
         }
 
+        if new_project_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut project = Project::unpack_unchecked(&new_project_info.data.borrow())?;
         if project.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
@@ -157,6 +169,11 @@ impl Processor {
         let from_info = next_account_info(account_info_iter)?;
         let system_program_info = next_account_info(account_info_iter)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
+
+        if project_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        Project::unpack(&project_info.data.borrow())?;
 
         let (_, bump_seed) = Pubkey::find_program_address(
             &[
@@ -221,7 +238,7 @@ impl Processor {
     }
 
     pub fn process_vote(
-        _program_id: &Pubkey,
+        program_id: &Pubkey,
         accounts: &[AccountInfo],
         amount: u64,
         decimals: u8,
@@ -236,6 +253,9 @@ impl Processor {
         let from_auth_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Ongoing {
             return Err(QFError::RoundStatusError.into());
@@ -244,7 +264,14 @@ impl Processor {
             return Err(QFError::VaultMismatch.into());
         }
 
+        if project_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut project = Project::unpack(&project_info.data.borrow())?;
+
+        if voter_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut voter = Voter::unpack(&voter_info.data.borrow())?;
 
         invoke(
@@ -317,11 +344,17 @@ impl Processor {
         let to_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Finished {
             return Err(QFError::RoundStatusError.into());
         }
 
+        if project_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut project = Project::unpack(&project_info.data.borrow())?;
         if project.round != *round_info.key {
             return Err(QFError::RoundMismatch.into());
@@ -378,11 +411,14 @@ impl Processor {
         Ok(())
     }
 
-    pub fn process_end_round(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    pub fn process_end_round(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let round_info = next_account_info(account_info_iter)?;
         let owner_info = next_account_info(account_info_iter)?;
 
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
         let mut round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Ongoing {
             return Err(QFError::RoundStatusError.into());
