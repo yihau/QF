@@ -13,6 +13,9 @@ pub enum QFError {
     #[error("vault does not match")]
     VaultMismatch,
 
+    #[error("round does not match")]
+    RoundMismatch,
+
     #[error("project has already withdraw")]
     ProjectAlreadyWithdraw,
 }

@@ -323,6 +323,9 @@ impl Processor {
         }
 
         let mut project = Project::unpack(&project_info.data.borrow())?;
+        if project.round != *round_info.key {
+            return Err(QFError::RoundMismatch.into());
+        }
         if project.withdraw {
             return Err(QFError::ProjectAlreadyWithdraw.into());
         }
