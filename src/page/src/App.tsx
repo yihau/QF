@@ -69,6 +69,10 @@ export default () => {
   ]);
   const [getVoterInfoPubkey, setGetVoterInfoPubkey] = useState("");
 
+  function appendOutput(output: String) {
+    setOutput((prev) => output + "\n" + prev);
+  }
+
   async function connectWallet() {
     try {
       if (wallet.connected) {
@@ -85,7 +89,7 @@ export default () => {
 
       await wallet.connect();
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput("connect wallet error:" + e.message);
     }
   }
 
@@ -145,13 +149,11 @@ export default () => {
       signedTx.partialSign(round, vault);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
-      setOutput("wait for New Round" + "\n" + output);
+      appendOutput("wait for New Round");
       await connection.confirmTransaction(txid);
-      setOutput(
-        "new round pubkey: " + round.publicKey.toBase58() + "\n" + output
-      );
+      appendOutput("new round pubkey: " + round.publicKey.toBase58());
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput("new round error:" + e.message);
     }
   }
 
@@ -188,13 +190,11 @@ export default () => {
       signedTx.partialSign(project);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
-      setOutput("wait for register project" + "\n" + output);
+      appendOutput("wait for register project");
       await connection.confirmTransaction(txid);
-      setOutput(
-        "project pubkey: " + project.publicKey.toBase58() + "\n" + output
-      );
+      appendOutput("project pubkey: " + project.publicKey.toBase58());
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput("register project error:" + e.message);
     }
   }
 
@@ -255,11 +255,11 @@ export default () => {
       signedTx.partialSign(tmpTokenAccount);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
-      setOutput("wait for donate" + "\n" + output);
+      appendOutput("wait for donate");
       await connection.confirmTransaction(txid);
-      setOutput("donate success" + "\n" + output);
+      appendOutput("donate success");
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -278,9 +278,7 @@ export default () => {
       );
       let voterInfo = await getVoterInfo(voterPubkey.toBase58());
       if (voterInfo !== undefined && voterInfo.isInit) {
-        setOutput(
-          "voter: " + voterPubkey.toBase58() + " already init" + "\n" + output
-        );
+        appendOutput("voter: " + voterPubkey.toBase58() + " already init");
         return;
       }
 
@@ -301,13 +299,11 @@ export default () => {
       let signedTx = await wallet.signTransaction(tx);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
-      setOutput("wait for init voter" + "\n" + output);
+      appendOutput("wait for init voter");
       await connection.confirmTransaction(txid);
-      setOutput(
-        "voter " + voterPubkey.toBase58() + " init success" + "\n" + output
-      );
+      appendOutput("voter " + voterPubkey.toBase58() + " init success");
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -326,7 +322,7 @@ export default () => {
       );
       let voterInfo = await getVoterInfo(voterPubkey.toBase58());
       if (voterInfo === undefined || !voterInfo.isInit) {
-        setOutput(
+        appendOutput(
           "please init voter for project " +
             projectPubkey +
             " first" +
@@ -442,7 +438,7 @@ export default () => {
               )
             );
         } else {
-          setOutput(e.message + " " + assoAccount.toBase58() + "\n" + output);
+          appendOutput(e.message + " " + assoAccount.toBase58());
           return;
         }
       }
@@ -471,11 +467,11 @@ export default () => {
       }
       signedTx = await wallet.signTransaction(tx);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
-      setOutput("wait for vote" + "\n" + output);
+      appendOutput("wait for vote");
       await connection.confirmTransaction(txid);
-      setOutput("vote success" + "\n" + output);
+      appendOutput("vote success");
     } catch (e) {
-      setOutput("vote error: " + e.message + "\n" + output);
+      appendOutput("vote error: " + e.message);
     }
   }
 
@@ -502,11 +498,11 @@ export default () => {
       let signedTx = await wallet.signTransaction(tx);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
-      setOutput("wait for withdraw" + "\n" + output);
+      appendOutput("wait for withdraw");
       await connection.confirmTransaction(txid);
-      setOutput("widraw success" + "\n" + output);
+      appendOutput("widraw success");
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -522,11 +518,11 @@ export default () => {
 
       let signedTx = await wallet.signTransaction(tx);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
-      setOutput("wait for end round" + "\n" + output);
+      appendOutput("wait for end round");
       await connection.confirmTransaction(txid);
-      setOutput("end round " + roundPubkey + " success" + "\n" + output);
+      appendOutput("end round " + roundPubkey + " success");
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -544,21 +540,17 @@ export default () => {
       encodeInfo.owner = new PublicKey(encodeInfo.owner);
       encodeInfo.area = new BN(encodeInfo.area, 10, "le");
 
-      setOutput(
-        `
+      appendOutput(`
       ================ Round ================\n
       status: ${encodeInfo.roundStatus}\n
       owner: ${encodeInfo.owner.toBase58()}\n
       vault: ${encodeInfo.vault.toBase58()}\n
       fund: ${encodeInfo.fund.toString()}\n
-      area: ${encodeInfo.area.toString()}` +
-          "\n" +
-          output
-      );
+      area: ${encodeInfo.area.toString()}`);
 
       return encodeInfo;
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -579,21 +571,17 @@ export default () => {
       encodeInfo.votes = new BN(encodeInfo.votes, 10, "le");
       encodeInfo.area = new BN(encodeInfo.area, 10, "le");
 
-      setOutput(
-        `
+      appendOutput(`
       ================ Project ================\n
       round: ${encodeInfo.round.toBase58()}\n
       owner: ${encodeInfo.owner.toBase58()}\n
       withdraw: ${encodeInfo.withdraw}\n
       votes: ${encodeInfo.votes.toString()}\n
-      area: ${encodeInfo.area.toString()}` +
-          "\n" +
-          output
-      );
+      area: ${encodeInfo.area.toString()}`);
 
       return encodeInfo;
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
@@ -609,18 +597,14 @@ export default () => {
       encodeInfo.votes = new BN(encodeInfo.votes, 10, "le");
       encodeInfo.votes_sqrt = new BN(encodeInfo.votes_sqrt, 10, "le");
 
-      setOutput(
-        `
+      appendOutput(`
       ================ Voter ================\n
       isInit: ${encodeInfo.isInit}\n
       votes: ${encodeInfo.votes.toString()}\n
-      votes sqrt: ${encodeInfo.votes_sqrt.toString()}` +
-          "\n" +
-          output
-      );
+      votes sqrt: ${encodeInfo.votes_sqrt.toString()}`);
       return encodeInfo;
     } catch (e) {
-      setOutput(e.message + "\n" + output);
+      appendOutput(e.message);
     }
   }
 
