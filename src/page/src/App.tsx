@@ -20,7 +20,7 @@ import * as SPLToken from "@solana/spl-token";
 
 export default () => {
   const programId = new PublicKey(
-    "DzDZWoTSgbh3NHRjDkH61CXbrNn7AY64ooFL6HnNiZm1"
+    "" // FIXME: you need to deploy your own program and fill it
   );
 
   const [connection, setConnection] = useState(
@@ -59,6 +59,7 @@ export default () => {
     BufferLayout.u8("withdraw"),
     BufferLayout.blob(8, "votes"),
     BufferLayout.blob(32, "area"),
+    BufferLayout.blob(32, "area_sqrt"),
   ]);
   const [getProjectInfoPubkey, setGetProjectInfoPubkey] = useState("");
 
@@ -570,6 +571,7 @@ export default () => {
       encodeInfo.withdraw = encodeInfo.withdraw == 1;
       encodeInfo.votes = new BN(encodeInfo.votes, 10, "le");
       encodeInfo.area = new BN(encodeInfo.area, 10, "le");
+      encodeInfo.area_sqrt = new BN(encodeInfo.area_sqrt, 10, "le");
 
       appendOutput(`
       ================ Project ================\n
@@ -577,7 +579,8 @@ export default () => {
       owner: ${encodeInfo.owner.toBase58()}\n
       withdraw: ${encodeInfo.withdraw}\n
       votes: ${encodeInfo.votes.toString()}\n
-      area: ${encodeInfo.area.toString()}`);
+      area: ${encodeInfo.area.toString()}\n
+      area_sqrt: ${encodeInfo.area_sqrt.toString()}`);
 
       return encodeInfo;
     } catch (e) {

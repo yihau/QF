@@ -25,11 +25,11 @@ async function main() {
   console.log("");
 
   // init some roles
-  let feePayer = await newAccountWithLamports(connection, 10000000000);
+  let feePayer = await newAccountWithLamports(connection, 1e11);
   let {
     player: angleInvestor,
     playerTokenHolderPubkey: angleInvestorTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer);
+  } = await InitPlayer(connection, feePayer, 1e10);
 
   // deploy program
   console.log("Deploy Program...");
@@ -56,7 +56,7 @@ async function main() {
     SPLToken.NATIVE_MINT,
     vaultPubkey,
     angleInvestor,
-    10000,
+    1e9,
     9
   );
   console.log("=> Donate", donateTxHash);
@@ -84,7 +84,7 @@ async function main() {
   let {
     player: Alice,
     playerTokenHolderPubkey: AliceTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer);
+  } = await InitPlayer(connection, feePayer, 1e10);
 
   // init Alice project 1 voter
   let {
@@ -128,7 +128,7 @@ async function main() {
     SPLToken.NATIVE_MINT,
     vaultPubkey,
     Alice,
-    1,
+    1e9,
     9
   );
   console.log("=> Alice Vote Project 1", aliceVoteProject1TxHash);
@@ -153,7 +153,7 @@ async function main() {
     SPLToken.NATIVE_MINT,
     vaultPubkey,
     Alice,
-    1,
+    1e9,
     9
   );
   console.log("=> Alice Vote Project 2", aliceVoteProject2TxHash);
@@ -170,7 +170,7 @@ async function main() {
   let {
     player: bob,
     playerTokenHolderPubkey: bobTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer);
+  } = await InitPlayer(connection, feePayer, 1e10);
 
   // init Bob project 1 voter
   let {
@@ -199,7 +199,7 @@ async function main() {
     SPLToken.NATIVE_MINT,
     vaultPubkey,
     bob,
-    1,
+    1e9,
     9
   );
 
@@ -225,7 +225,7 @@ async function main() {
     SPLToken.NATIVE_MINT,
     vaultPubkey,
     bob,
-    1,
+    1e9,
     9
   );
   console.log("=> Bob Vote Project 1 Again", bobVoteProject1AgainTxHash);
@@ -1110,6 +1110,7 @@ type Project = {
   withdraw: boolean;
   votes: BN; // u64
   area: BN; // u256
+  area_sqrt: BN; // u256
 };
 
 const ProjectAccountDataLayout = BufferLayout.struct([
@@ -1118,6 +1119,7 @@ const ProjectAccountDataLayout = BufferLayout.struct([
   BufferLayout.u8("withdraw"),
   BufferLayout.blob(8, "votes"),
   BufferLayout.blob(32, "area"),
+  BufferLayout.blob(32, "area_sqrt"),
 ]);
 
 async function getProjectInfo(
@@ -1136,6 +1138,7 @@ async function getProjectInfo(
   projectInfo.withdraw = projectInfo.withdraw == 1;
   projectInfo.votes = new BN(projectInfo.votes, 10, "le");
   projectInfo.area = new BN(projectInfo.area, 10, "le");
+  projectInfo.area_sqrt = new BN(projectInfo.area_sqrt, 10, "le");
 
   return projectInfo;
 }

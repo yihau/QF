@@ -80,6 +80,7 @@ pub struct Project {
     pub withdraw: bool,
     pub votes: u64,
     pub area: U256,
+    pub area_sqrt: U256,
 }
 impl Sealed for Project {}
 impl IsInitialized for Project {
@@ -88,10 +89,10 @@ impl IsInitialized for Project {
     }
 }
 impl Pack for Project {
-    const LEN: usize = 105;
+    const LEN: usize = 137;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 105];
-        let (round, owner, withdraw, votes, area) = array_refs![src, 32, 32, 1, 8, 32];
+        let src = array_ref![src, 0, 137];
+        let (round, owner, withdraw, votes, area, area_sqrt) = array_refs![src, 32, 32, 1, 8, 32, 32];
         Ok(Project {
             round: Pubkey::new_from_array(*round),
             owner: Pubkey::new_from_array(*owner),
@@ -102,24 +103,27 @@ impl Pack for Project {
             },
             votes: u64::from_le_bytes(*votes),
             area: U256::from_little_endian(area),
+            area_sqrt: U256::from_little_endian(area_sqrt),
         })
     }
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, 105];
-        let (round_dst, owner_dst, withdraw_dst, votes_dst, area_dst) =
-            mut_array_refs![dst, 32, 32, 1, 8, 32];
+        let dst = array_mut_ref![dst, 0, 137];
+        let (round_dst, owner_dst, withdraw_dst, votes_dst, area_dst, area_sqrt_dst) =
+            mut_array_refs![dst, 32, 32, 1, 8, 32, 32];
         let &Project {
             ref round,
             ref owner,
             withdraw,
             votes,
             area,
+            area_sqrt,
         } = self;
         round_dst.copy_from_slice(round.as_ref());
         owner_dst.copy_from_slice(owner.as_ref());
         withdraw_dst[0] = withdraw as u8;
         *votes_dst = votes.to_le_bytes();
         area.to_little_endian(area_dst);
+        area_sqrt.to_little_endian(area_sqrt_dst);
     }
 }
 

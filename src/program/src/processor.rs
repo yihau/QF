@@ -293,11 +293,10 @@ impl Processor {
                 token_program_info.clone(),
             ],
         )?;
-
         round.area = round.area.checked_sub(project.area).unwrap();
 
-        let mut project_area = PreciseNumber {
-            value: project.area,
+        let mut project_area_sqrt = PreciseNumber {
+            value: project.area_sqrt,
         };
 
         let new_votes_sqrt = PreciseNumber {
@@ -308,22 +307,19 @@ impl Processor {
         .sqrt()
         .unwrap();
 
-        project_area = project_area
-            .sqrt()
-            .unwrap()
+        project_area_sqrt = project_area_sqrt
             .checked_sub(&PreciseNumber {
                 value: voter.votes_sqrt,
             })
             .unwrap()
             .checked_add(&new_votes_sqrt)
-            .unwrap()
-            .checked_pow(2)
             .unwrap();
+        project.area = project_area_sqrt.checked_pow(2).unwrap().value;
 
-        project.area = project_area.value;
         round.area = round.area.checked_add(project.area).unwrap();
         Round::pack(round, &mut round_info.data.borrow_mut())?;
 
+        project.area_sqrt = project_area_sqrt.value;
         project.votes = project.votes.checked_add(amount).unwrap();
         Project::pack(project, &mut project_info.data.borrow_mut())?;
 
