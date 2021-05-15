@@ -559,7 +559,12 @@ impl PrintProgramError for QFError {
         E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
     {
         match self {
-            _ => msg!("error"),
+            QFError::OwnerMismatch => msg!("owner mismatch"),
+            QFError::RoundStatusError => msg!("round status does not expected"),
+            QFError::VaultMismatch => msg!("vault does not match"),
+            QFError::RoundMismatch => msg!("round does not match"),
+            QFError::ProjectAlreadyWithdraw => msg!("project has already withdraw"),
+            QFError::UnexpectedTokenProgramID => msg!("unexpected token program id"),
         }
     }
 }
