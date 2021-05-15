@@ -90,6 +90,10 @@ impl Processor {
             return Err(QFError::VaultMismatch.into());
         }
 
+        if token_program_info.key != &spl_token::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
+        }
+
         invoke(
             &spl_token::instruction::transfer_checked(
                 &token_program_info.key,
@@ -274,6 +278,10 @@ impl Processor {
         }
         let mut voter = Voter::unpack(&voter_info.data.borrow())?;
 
+        if token_program_info.key != &spl_token::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
+        }
+
         invoke(
             &spl_token::instruction::transfer_checked(
                 &token_program_info.key,
@@ -363,6 +371,10 @@ impl Processor {
         }
         if project.owner != *project_owner_info.key {
             return Err(QFError::OwnerMismatch.into());
+        }
+
+        if token_program_info.key != &spl_token::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
         }
 
         let seeds: &[&[_]] = &[
@@ -466,6 +478,10 @@ impl Processor {
 
         if vault_info.key != &round.vault {
             return Err(QFError::VaultMismatch.into());
+        }
+
+        if token_program_info.key != &spl_token::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
         }
 
         let seeds: &[&[_]] = &[

@@ -18,6 +18,9 @@ pub enum QFError {
 
     #[error("project has already withdraw")]
     ProjectAlreadyWithdraw,
+
+    #[error("unexpected token program id")]
+    UnexpectedTokenProgramID,
 }
 impl From<QFError> for ProgramError {
     fn from(e: QFError) -> Self {
