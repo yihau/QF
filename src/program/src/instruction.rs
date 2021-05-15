@@ -12,6 +12,7 @@ pub enum QFInstruction {
     Vote { amount: u64, decimals: u8 },
     Withdraw,
     EndRound,
+    WithdrawFee,
 }
 
 impl QFInstruction {
@@ -41,6 +42,7 @@ impl QFInstruction {
             3 => Self::InitVoter,
             5 => Self::Withdraw,
             6 => Self::EndRound,
+            7 => Self::WithdrawFee,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }
@@ -63,6 +65,7 @@ impl QFInstruction {
             }
             Self::Withdraw => buf.push(5),
             Self::EndRound => buf.push(6),
+            Self::WithdrawFee => buf.push(7),
         };
         buf
     }

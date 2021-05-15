@@ -20,7 +20,7 @@ import * as SPLToken from "@solana/spl-token";
 
 export default () => {
   const programId = new PublicKey(
-    "" // FIXME: you need to deploy your own program and fill it
+    "DzDZWoTSgbh3NHRjDkH61CXbrNn7AY64ooFL6HnNiZm1" // FIXME: you need to deploy your own program and fill it
   );
 
   const [connection, setConnection] = useState(
@@ -42,11 +42,14 @@ export default () => {
   const [donateRoundPubkey, setDonateRoundPubkey] = useState("");
   const [donateAmount, setDonateAmount] = useState("");
   const [closeRoundPubkey, setCloseRoundPubkey] = useState("");
+  const [withdrawFeeRoundPubkey, setWithdrawFeeRoundPubkey] = useState("");
+  const [withdrawFeeToPubkey, setWithdrawFeeToPubkey] = useState("");
   const [output, setOutput] = useState("");
 
   const RoundAccountDataLayout = BufferLayout.struct([
     BufferLayout.u8("roundStatus"),
     BufferLayout.blob(8, "fund"),
+    BufferLayout.blob(8, "fee"),
     BufferLayout.blob(32, "vault"),
     BufferLayout.blob(32, "owner"),
     BufferLayout.blob(32, "area"),
@@ -527,6 +530,35 @@ export default () => {
     }
   }
 
+  async function withdrawFee(roundPubkey: string, toPubkey: string) {
+    try {
+      let roundInfo = await getRoundInfo(roundPubkey);
+      let vaultOwner = await getVaultOwnerPubkey(roundInfo.owner, programId);
+      const tx = new Transaction().add(
+        withdrawFeeInstruction(
+          programId,
+          new PublicKey(roundPubkey),
+          roundInfo.owner,
+          roundInfo.vault,
+          vaultOwner,
+          new PublicKey(toPubkey)
+        )
+      );
+      let { blockhash } = await connection.getRecentBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet.publicKey;
+
+      let signedTx = await wallet.signTransaction(tx);
+      let txid = await connection.sendRawTransaction(signedTx.serialize());
+
+      appendOutput("wait for withdraw fee");
+      await connection.confirmTransaction(txid);
+      appendOutput("withdraw fee success");
+    } catch (e) {
+      appendOutput(e.message);
+    }
+  }
+
   async function getRoundInfo(roundPubkey: string) {
     try {
       const info = await connection.getAccountInfo(new PublicKey(roundPubkey));
@@ -537,6 +569,7 @@ export default () => {
       const data = Buffer.from(info.data);
       const encodeInfo = RoundAccountDataLayout.decode(data);
       encodeInfo.fund = new BN(encodeInfo.fund, 10, "le");
+      encodeInfo.fee = new BN(encodeInfo.fee, 10, "le");
       encodeInfo.vault = new PublicKey(encodeInfo.vault);
       encodeInfo.owner = new PublicKey(encodeInfo.owner);
       encodeInfo.area = new BN(encodeInfo.area, 10, "le");
@@ -547,6 +580,7 @@ export default () => {
       owner: ${encodeInfo.owner.toBase58()}\n
       vault: ${encodeInfo.vault.toBase58()}\n
       fund: ${encodeInfo.fund.toString()}\n
+      fee: ${encodeInfo.fee.toString()}\n
       area: ${encodeInfo.area.toString()}`);
 
       return encodeInfo;
@@ -721,6 +755,25 @@ export default () => {
               End Round
             </button>
           </div>
+          <div>
+            <input
+              type="text"
+              value={withdrawFeeRoundPubkey}
+              onChange={(v) => setWithdrawFeeRoundPubkey(v.target.value)}
+              placeholder="round pubkey (base58)"
+            ></input>
+            <input
+              type="text"
+              value={withdrawFeeToPubkey}
+              onChange={(v) => setWithdrawToPubkey(v.target.value)}
+              placeholder="to pubkey (base58)"
+            ></input>
+            <button
+              onClick={() => withdrawFee(withdrawFeeRoundPubkey, withdrawFeeToPubkey)}
+            >
+              Withdraw Fee
+            </button>
+          </div>
         </div>
       ) : (
         <div>connect wallet first</div>
@@ -780,6 +833,7 @@ enum Instruction {
   Vote, // { amount: u64, decimals: u8 },
   Withdraw,
   EndRound,
+  WithdrawFee,
 }
 
 function createStartRoundInstruction(
@@ -1098,7 +1152,7 @@ function withdrawInstruction(
     {
       pubkey: roundPubkey,
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     },
     {
       pubkey: vaultPubkey,
@@ -1163,6 +1217,64 @@ function endRoundInstruction(
     {
       pubkey: ownerPubkey,
       isSigner: true,
+      isWritable: false,
+    },
+  ];
+
+  return new TransactionInstruction({
+    keys,
+    programId: programId,
+    data,
+  });
+}
+
+function withdrawFeeInstruction(
+  programId: PublicKey,
+  roundPubkey: PublicKey,
+  ownerPubkey: PublicKey,
+  vaultPubkey: PublicKey,
+  vaultOwnerPubkey: PublicKey,
+  toPubkey: PublicKey
+): TransactionInstruction {
+  const dataLayout = BufferLayout.struct([BufferLayout.u8("instruction")]);
+
+  const data = Buffer.alloc(dataLayout.span);
+  dataLayout.encode(
+    {
+      instruction: Instruction.WithdrawFee,
+    },
+    data
+  );
+
+  let keys = [
+    {
+      pubkey: roundPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: ownerPubkey,
+      isSigner: true,
+      isWritable: false,
+    },
+    {
+      pubkey: vaultPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: vaultOwnerPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: toPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: SPLToken.TOKEN_PROGRAM_ID,
+      isSigner: false,
       isWritable: false,
     },
   ];

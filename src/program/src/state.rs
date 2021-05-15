@@ -28,6 +28,7 @@ impl Default for RoundStatus {
 pub struct Round {
     pub status: RoundStatus,
     pub fund: u64,
+    pub fee: u64,
     pub vault: Pubkey,
     pub owner: Pubkey,
     pub area: U256,
@@ -39,32 +40,35 @@ impl IsInitialized for Round {
     }
 }
 impl Pack for Round {
-    const LEN: usize = 105;
+    const LEN: usize = 113;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 105];
-        let (status, fund, vault, owner, area) = array_refs![src, 1, 8, 32, 32, 32];
+        let src = array_ref![src, 0, 113];
+        let (status, fund, fee, vault, owner, area) = array_refs![src, 1, 8, 8, 32, 32, 32];
         Ok(Round {
             status: RoundStatus::try_from_primitive(status[0])
                 .or(Err(ProgramError::InvalidAccountData))?,
             fund: u64::from_le_bytes(*fund),
+            fee: u64::from_le_bytes(*fee),
             vault: Pubkey::new_from_array(*vault),
             owner: Pubkey::new_from_array(*owner),
             area: U256::from_little_endian(area),
         })
     }
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, 105];
-        let (status_dst, fund_dst, vault_dst, owner_dst, area_dst) =
-            mut_array_refs![dst, 1, 8, 32, 32, 32];
+        let dst = array_mut_ref![dst, 0, 113];
+        let (status_dst, fund_dst, fee_dst, vault_dst, owner_dst, area_dst) =
+            mut_array_refs![dst, 1, 8, 8, 32, 32, 32];
         let &Round {
             status,
             fund,
+            fee,
             ref owner,
             ref vault,
             area,
         } = self;
         status_dst[0] = status as u8;
         *fund_dst = fund.to_le_bytes();
+        *fee_dst = fee.to_le_bytes();
         owner_dst.copy_from_slice(owner.as_ref());
         vault_dst.copy_from_slice(vault.as_ref());
         area.to_little_endian(area_dst);

@@ -343,7 +343,7 @@ impl Processor {
         if round_info.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let round = Round::unpack(&round_info.data.borrow())?;
+        let mut round = Round::unpack(&round_info.data.borrow())?;
         if round.status != RoundStatus::Finished {
             return Err(QFError::RoundStatusError.into());
         }
@@ -383,6 +383,10 @@ impl Processor {
             )
             .unwrap();
 
+        // charge 5% fee
+        let fee = amount.checked_mul(5).unwrap().checked_div(100).unwrap();
+        let amount = amount.checked_sub(fee).unwrap();
+
         invoke_signed(
             &spl_token::instruction::transfer(
                 &token_program_info.key,
@@ -403,6 +407,9 @@ impl Processor {
 
         project.withdraw = true;
         Project::pack(project, &mut project_info.data.borrow_mut())?;
+
+        round.fee = round.fee.checked_add(fee).unwrap();
+        Round::pack(round, &mut round_info.data.borrow_mut())?;
 
         Ok(())
     }
@@ -425,6 +432,66 @@ impl Processor {
         }
 
         round.status = RoundStatus::Finished;
+        Round::pack(round, &mut round_info.data.borrow_mut())?;
+
+        Ok(())
+    }
+
+    pub fn process_withdraw_fee(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let round_info = next_account_info(account_info_iter)?;
+        let owner_info = next_account_info(account_info_iter)?;
+        let vault_info = next_account_info(account_info_iter)?;
+        let vault_owner_info = next_account_info(account_info_iter)?;
+        let to_info = next_account_info(account_info_iter)?;
+        let token_program_info = next_account_info(account_info_iter)?;
+
+        if round_info.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        let mut round = Round::unpack(&round_info.data.borrow())?;
+        if round.status != RoundStatus::Finished {
+            return Err(QFError::RoundStatusError.into());
+        }
+        if round.fee == 0 {
+            return Err(ProgramError::InsufficientFunds);
+        }
+
+        if owner_info.key != &round.owner {
+            return Err(QFError::OwnerMismatch.into());
+        }
+        if !owner_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        if vault_info.key != &round.vault {
+            return Err(QFError::VaultMismatch.into());
+        }
+
+        let seeds: &[&[_]] = &[
+            &round.owner.to_bytes(),
+            &[Pubkey::find_program_address(&[&round.owner.to_bytes()], &program_id).1],
+        ];
+
+        invoke_signed(
+            &spl_token::instruction::transfer(
+                &token_program_info.key,
+                &vault_info.key,
+                &to_info.key,
+                &vault_owner_info.key,
+                &[&vault_owner_info.key],
+                round.fee,
+            )?,
+            &[
+                vault_info.clone(),
+                to_info.clone(),
+                vault_owner_info.clone(),
+                token_program_info.clone(),
+            ],
+            &[&seeds],
+        )?;
+
+        round.fee = 0;
         Round::pack(round, &mut round_info.data.borrow_mut())?;
 
         Ok(())
@@ -461,6 +528,10 @@ impl Processor {
             QFInstruction::EndRound => {
                 msg!("Instruction: EndRound");
                 Self::process_end_round(program_id, accounts)
+            }
+            QFInstruction::WithdrawFee => {
+                msg!("Instruction: WithdrawFee");
+                Self::process_withdraw_fee(program_id, accounts)
             }
         }
     }

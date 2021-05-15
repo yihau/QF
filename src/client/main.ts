@@ -81,10 +81,8 @@ async function main() {
   await printProjectInfo(connection, project2Pubkey);
 
   // init Alice
-  let {
-    player: Alice,
-    playerTokenHolderPubkey: AliceTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer, 1e10);
+  let { player: Alice, playerTokenHolderPubkey: AliceTokenHolderPubkey } =
+    await InitPlayer(connection, feePayer, 1e10);
 
   // init Alice project 1 voter
   let {
@@ -167,23 +165,19 @@ async function main() {
   );
 
   // init Bob
-  let {
-    player: bob,
-    playerTokenHolderPubkey: bobTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer, 1e10);
+  let { player: bob, playerTokenHolderPubkey: bobTokenHolderPubkey } =
+    await InitPlayer(connection, feePayer, 1e10);
 
   // init Bob project 1 voter
-  let {
-    txHash: initBobProject1Voter,
-    voterPubkey: bobProject1VoterPubkey,
-  } = await InitVoter(
-    connection,
-    feePayer,
-    feePayer,
-    project1Pubkey,
-    bobTokenHolderPubkey,
-    QFProgramID
-  );
+  let { txHash: initBobProject1Voter, voterPubkey: bobProject1VoterPubkey } =
+    await InitVoter(
+      connection,
+      feePayer,
+      feePayer,
+      project1Pubkey,
+      bobTokenHolderPubkey,
+      QFProgramID
+    );
   console.log("=> Init Bob Projcet 1 Voter", initBobProject1Voter);
   printVoterInfo(connection, bobProject1VoterPubkey, "Bob Project 1 Voter");
 
@@ -248,15 +242,14 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
 
   // init project 1 withdraw receiver
-  let {
-    playerTokenHolderPubkey: project1WithdrawReceiverPubkey,
-  } = await InitPlayer(
-    connection,
-    feePayer,
-    await connection.getMinimumBalanceForRentExemption(
-      SPLToken.AccountLayout.span
-    )
-  );
+  let { playerTokenHolderPubkey: project1WithdrawReceiverPubkey } =
+    await InitPlayer(
+      connection,
+      feePayer,
+      await connection.getMinimumBalanceForRentExemption(
+        SPLToken.AccountLayout.span
+      )
+    );
   console.log("=> Init Project 1 Token Receiver");
   await printTokenAccount(
     connection,
@@ -266,21 +259,37 @@ async function main() {
   );
 
   // init project 2 withdraw receiver
-  let {
-    playerTokenHolderPubkey: project2WithdrawReceiverPubkey,
-  } = await InitPlayer(
-    connection,
-    feePayer,
-    await connection.getMinimumBalanceForRentExemption(
-      SPLToken.AccountLayout.span
-    )
-  );
+  let { playerTokenHolderPubkey: project2WithdrawReceiverPubkey } =
+    await InitPlayer(
+      connection,
+      feePayer,
+      await connection.getMinimumBalanceForRentExemption(
+        SPLToken.AccountLayout.span
+      )
+    );
   console.log("=> Init Project 2 Token Receiver");
   await printTokenAccount(
     connection,
     feePayer,
     project2WithdrawReceiverPubkey,
     "Project 2 Token Receiver"
+  );
+
+  // init owner withdraw receiver
+  let { playerTokenHolderPubkey: roundOwnerWithdrawReceiverPubkey } =
+    await InitPlayer(
+      connection,
+      feePayer,
+      await connection.getMinimumBalanceForRentExemption(
+        SPLToken.AccountLayout.span
+      )
+    );
+  console.log("=> Init Round Owner Token Receiver");
+  await printTokenAccount(
+    connection,
+    feePayer,
+    roundOwnerWithdrawReceiverPubkey,
+    "Round Owner Token Receiver"
   );
 
   let { txHash: project1WithdrawTxHash } = await Withdraw(
@@ -295,6 +304,7 @@ async function main() {
     project1WithdrawReceiverPubkey
   );
   console.log("=> Project 1 Withdraw", project1WithdrawTxHash);
+  await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey);
   await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
   await printTokenAccount(
@@ -303,6 +313,20 @@ async function main() {
     project1WithdrawReceiverPubkey,
     "Project 1 Token Receiver"
   );
+
+  let { txHash: withdrawFee1TxHash } = await WithdrawFee(
+    connection,
+    feePayer,
+    QFProgramID,
+    roundPubkey,
+    roundOwner,
+    vaultPubkey,
+    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    roundOwnerWithdrawReceiverPubkey
+  );
+  console.log("=> Withdraw Fee", withdrawFee1TxHash);
+  await printRoundInfo(connection, roundPubkey);
+  await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
 
   let { txHash: project2WithdrawTxHash } = await Withdraw(
     connection,
@@ -315,7 +339,9 @@ async function main() {
     project2Owner,
     project2WithdrawReceiverPubkey
   );
+
   console.log("=> Project 2 Withdraw", project2WithdrawTxHash);
+  await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project2Pubkey);
   await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
   await printTokenAccount(
@@ -324,6 +350,20 @@ async function main() {
     project2WithdrawReceiverPubkey,
     "Project 2 Token Receiver"
   );
+
+  let { txHash: withdrawFee2TxHash } = await WithdrawFee(
+    connection,
+    feePayer,
+    QFProgramID,
+    roundPubkey,
+    roundOwner,
+    vaultPubkey,
+    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    roundOwnerWithdrawReceiverPubkey
+  );
+  console.log("=> Withdraw Fee", withdrawFee2TxHash);
+  await printRoundInfo(connection, roundPubkey);
+  await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
 }
 
 main().then(
@@ -342,6 +382,7 @@ enum Instruction {
   Vote, // { amount: u64, decimals: u8 },
   Withdraw,
   EndRound,
+  WithdrawFee,
 }
 
 function createStartRoundInstruction(
@@ -660,7 +701,7 @@ function withdrawInstruction(
     {
       pubkey: roundPubkey,
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     },
     {
       pubkey: vaultPubkey,
@@ -725,6 +766,64 @@ function endRoundInstruction(
     {
       pubkey: ownerPubkey,
       isSigner: true,
+      isWritable: false,
+    },
+  ];
+
+  return new TransactionInstruction({
+    keys,
+    programId: programId,
+    data,
+  });
+}
+
+function withdrawFeeInstruction(
+  programId: PublicKey,
+  roundPubkey: PublicKey,
+  ownerPubkey: PublicKey,
+  vaultPubkey: PublicKey,
+  vaultOwnerPubkey: PublicKey,
+  toPubkey: PublicKey
+): TransactionInstruction {
+  const dataLayout = BufferLayout.struct([BufferLayout.u8("instruction")]);
+
+  const data = Buffer.alloc(dataLayout.span);
+  dataLayout.encode(
+    {
+      instruction: Instruction.WithdrawFee,
+    },
+    data
+  );
+
+  let keys = [
+    {
+      pubkey: roundPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: ownerPubkey,
+      isSigner: true,
+      isWritable: false,
+    },
+    {
+      pubkey: vaultPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: vaultOwnerPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: toPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: SPLToken.TOKEN_PROGRAM_ID,
+      isSigner: false,
       isWritable: false,
     },
   ];
@@ -1054,9 +1153,46 @@ async function EndRound(
   };
 }
 
+async function WithdrawFee(
+  connection: Connection,
+  feePayer: Account,
+  programId: PublicKey,
+  roundPubkey: PublicKey,
+  owner: Account,
+  vaultPubkey: PublicKey,
+  vaultOwnerPubkey: PublicKey,
+  toPubkey: PublicKey
+): Promise<any> {
+  const tx = new Transaction().add(
+    withdrawFeeInstruction(
+      programId,
+      roundPubkey,
+      owner.publicKey,
+      vaultPubkey,
+      vaultOwnerPubkey,
+      toPubkey
+    )
+  );
+
+  let txHash = await sendAndConfirmTransaction(
+    connection,
+    tx,
+    [feePayer, owner],
+    {
+      commitment: "singleGossip",
+      preflightCommitment: "singleGossip",
+    }
+  );
+
+  return {
+    txHash: txHash,
+  };
+}
+
 type Round = {
   roundStatus: number; // u8
   fund: BN; // u64
+  fee: BN; // u64
   vault: PublicKey;
   owner: PublicKey;
   area: BN; // u256
@@ -1065,6 +1201,7 @@ type Round = {
 const RoundAccountDataLayout = BufferLayout.struct([
   BufferLayout.u8("roundStatus"),
   BufferLayout.blob(8, "fund"),
+  BufferLayout.blob(8, "fee"),
   BufferLayout.blob(32, "vault"),
   BufferLayout.blob(32, "owner"),
   BufferLayout.blob(32, "area"),
@@ -1081,6 +1218,7 @@ async function printRoundInfo(
   console.log("owner", info.owner.toBase58());
   console.log("vault", info.vault.toBase58());
   console.log("fund", info.fund.toString());
+  console.log("fee", info.fee.toString());
   console.log("area", info.area.toString());
   console.log("");
 }
@@ -1097,6 +1235,7 @@ async function getRoundInfo(
   const data = Buffer.from(info.data);
   const roundInfo = RoundAccountDataLayout.decode(data);
   roundInfo.fund = new BN(roundInfo.fund, 10, "le");
+  roundInfo.fee = new BN(roundInfo.fee, 10, "le");
   roundInfo.vault = new PublicKey(roundInfo.vault);
   roundInfo.owner = new PublicKey(roundInfo.owner);
   roundInfo.area = new BN(roundInfo.area, 10, "le");
