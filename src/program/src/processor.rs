@@ -439,6 +439,9 @@ impl Processor {
             return Err(QFError::RoundStatusError.into());
         }
 
+        if owner_info.key != &round.owner {
+            return Err(QFError::OwnerMismatch.into());
+        }
         if !owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
