@@ -96,7 +96,8 @@ impl Pack for Project {
     const LEN: usize = 137;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, 137];
-        let (round, owner, withdraw, votes, area, area_sqrt) = array_refs![src, 32, 32, 1, 8, 32, 32];
+        let (round, owner, withdraw, votes, area, area_sqrt) =
+            array_refs![src, 32, 32, 1, 8, 32, 32];
         Ok(Project {
             round: Pubkey::new_from_array(*round),
             owner: Pubkey::new_from_array(*owner),

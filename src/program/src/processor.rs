@@ -48,7 +48,8 @@ impl Processor {
             return Err(ProgramError::AccountNotRentExempt);
         }
 
-        let (pda, _) = Pubkey::find_program_address(&[&round_owner_info.key.to_bytes()], &program_id);
+        let (pda, _) =
+            Pubkey::find_program_address(&[&round_owner_info.key.to_bytes()], &program_id);
         let vault = spl_token::state::Account::unpack(&vault_info.data.borrow())?;
         if vault.owner != pda {
             return Err(QFError::OwnerMismatch.into());
