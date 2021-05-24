@@ -276,6 +276,13 @@ impl Processor {
         if voter_info.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
         }
+        let (expected_key, _) = Pubkey::find_program_address(
+            &[&project_info.key.to_bytes(), &from_info.key.to_bytes()],
+            &program_id,
+        );
+        if voter_info.key != &expected_key {
+            return Err(QFError::VoterMismatch.into());
+        }
         let mut voter = Voter::unpack(&voter_info.data.borrow())?;
 
         if token_program_info.key != &spl_token::ID {
@@ -568,6 +575,7 @@ impl PrintProgramError for QFError {
             QFError::RoundMismatch => msg!("round does not match"),
             QFError::ProjectAlreadyWithdraw => msg!("project has already withdraw"),
             QFError::UnexpectedTokenProgramID => msg!("unexpected token program id"),
+            QFError::VoterMismatch => msg!("voter mismatch"),
         }
     }
 }

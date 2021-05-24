@@ -21,6 +21,9 @@ pub enum QFError {
 
     #[error("unexpected token program id")]
     UnexpectedTokenProgramID,
+
+    #[error("voter mismatch")]
+    VoterMismatch,
 }
 impl From<QFError> for ProgramError {
     fn from(e: QFError) -> Self {
