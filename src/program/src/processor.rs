@@ -273,6 +273,9 @@ impl Processor {
             return Err(ProgramError::IncorrectProgramId);
         }
         let mut project = Project::unpack(&project_info.data.borrow())?;
+        if project.round != *round_info.key {
+            return Err(QFError::RoundMismatch.into());
+        }
 
         if voter_info.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
