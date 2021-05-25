@@ -19,8 +19,14 @@ pub enum QFError {
     #[error("project has already withdraw")]
     ProjectAlreadyWithdraw,
 
+    #[error("unexpected system program id")]
+    UnexpectedSystemProgramID,
+
     #[error("unexpected token program id")]
     UnexpectedTokenProgramID,
+
+    #[error("unexpected asoociated token account program id")]
+    UnexpectedAssociatedTokenAccountProgram,
 
     #[error("voter mismatch")]
     VoterMismatch,

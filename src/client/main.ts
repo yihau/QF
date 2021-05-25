@@ -11,6 +11,7 @@ import {
   sendAndConfirmTransaction,
   TransactionInstruction,
   SYSVAR_RENT_PUBKEY,
+  SystemInstruction,
 } from "@solana/web3.js";
 import * as SPLToken from "@solana/spl-token";
 import { newAccountWithLamports } from "./util/new-account-with-lamports";
@@ -26,10 +27,11 @@ async function main() {
 
   // init some roles
   let feePayer = await newAccountWithLamports(connection, 1e11);
-  let {
-    player: angleInvestor,
-    playerTokenHolderPubkey: angleInvestorTokenHolderPubkey,
-  } = await InitPlayer(connection, feePayer, 1e10);
+  let { player: angleInvestor, playerTokenHolderPubkey: angleInvestorTokenHolderPubkey } = await InitPlayer(
+    connection,
+    feePayer,
+    1e10
+  );
 
   // deploy program
   console.log("Deploy Program...");
@@ -46,6 +48,7 @@ async function main() {
   } = await CreateNewRound(connection, feePayer, QFProgramID);
   console.log("=> Start New Round", createNewRoundTxHash);
   await printRoundInfo(connection, roundPubkey);
+  console.log("vault owner", (await getVaultOwnerPubkey(roundPubkey, QFProgramID)).toBase58());
 
   let { txHash: donateTxHash } = await Donate(
     connection,
@@ -81,14 +84,10 @@ async function main() {
   await printProjectInfo(connection, project2Pubkey);
 
   // init Alice
-  let { player: Alice, playerTokenHolderPubkey: AliceTokenHolderPubkey } =
-    await InitPlayer(connection, feePayer, 1e10);
+  let { player: Alice, playerTokenHolderPubkey: AliceTokenHolderPubkey } = await InitPlayer(connection, feePayer, 1e10);
 
   // init Alice project 1 voter
-  let {
-    txHash: initAliceProject1VoterTxHash,
-    voterPubkey: AliceProject1VoterPubkey,
-  } = await InitVoter(
+  let { txHash: initAliceProject1VoterTxHash, voterPubkey: AliceProject1VoterPubkey } = await InitVoter(
     connection,
     feePayer,
     feePayer,
@@ -100,10 +99,7 @@ async function main() {
   printVoterInfo(connection, AliceProject1VoterPubkey, "Alice Project 1 Voter");
 
   // init Alice project 2 voter
-  let {
-    txHash: initAliceProject2VoterTxHash,
-    voterPubkey: AliceProject2VoterPubkey,
-  } = await InitVoter(
+  let { txHash: initAliceProject2VoterTxHash, voterPubkey: AliceProject2VoterPubkey } = await InitVoter(
     connection,
     feePayer,
     feePayer,
@@ -133,11 +129,7 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey, "Project 1");
   await printProjectInfo(connection, project2Pubkey, "Project 2");
-  await printVoterInfo(
-    connection,
-    AliceProject1VoterPubkey,
-    "Alice Project 1 Voter"
-  );
+  await printVoterInfo(connection, AliceProject1VoterPubkey, "Alice Project 1 Voter");
 
   // Alice vote project 2
   let { txHash: aliceVoteProject2TxHash } = await Vote(
@@ -158,26 +150,20 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey, "Project 1");
   await printProjectInfo(connection, project2Pubkey, "Project 2");
-  await printVoterInfo(
-    connection,
-    AliceProject2VoterPubkey,
-    "Alice Project 2 Voter"
-  );
+  await printVoterInfo(connection, AliceProject2VoterPubkey, "Alice Project 2 Voter");
 
   // init Bob
-  let { player: bob, playerTokenHolderPubkey: bobTokenHolderPubkey } =
-    await InitPlayer(connection, feePayer, 1e10);
+  let { player: bob, playerTokenHolderPubkey: bobTokenHolderPubkey } = await InitPlayer(connection, feePayer, 1e10);
 
   // init Bob project 1 voter
-  let { txHash: initBobProject1Voter, voterPubkey: bobProject1VoterPubkey } =
-    await InitVoter(
-      connection,
-      feePayer,
-      feePayer,
-      project1Pubkey,
-      bobTokenHolderPubkey,
-      QFProgramID
-    );
+  let { txHash: initBobProject1Voter, voterPubkey: bobProject1VoterPubkey } = await InitVoter(
+    connection,
+    feePayer,
+    feePayer,
+    project1Pubkey,
+    bobTokenHolderPubkey,
+    QFProgramID
+  );
   console.log("=> Init Bob Projcet 1 Voter", initBobProject1Voter);
   printVoterInfo(connection, bobProject1VoterPubkey, "Bob Project 1 Voter");
 
@@ -201,11 +187,7 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey, "Project 1");
   await printProjectInfo(connection, project2Pubkey, "Project 2");
-  await printVoterInfo(
-    connection,
-    bobProject1VoterPubkey,
-    "Bob Project 1 Voter"
-  );
+  await printVoterInfo(connection, bobProject1VoterPubkey, "Bob Project 1 Voter");
 
   // Bob vote project 1 again
   let { txHash: bobVoteProject1AgainTxHash } = await Vote(
@@ -226,71 +208,38 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey, "Project 1");
   await printProjectInfo(connection, project2Pubkey, "Project 2");
-  await printVoterInfo(
-    connection,
-    bobProject1VoterPubkey,
-    "Bob Project 1 Voter"
-  );
+  await printVoterInfo(connection, bobProject1VoterPubkey, "Bob Project 1 Voter");
 
-  let { txHash: endRoundTxHash } = await EndRound(
-    connection,
-    roundPubkey,
-    roundOwner,
-    QFProgramID
-  );
+  let { txHash: endRoundTxHash } = await EndRound(connection, roundPubkey, roundOwner, QFProgramID);
   console.log("=> End Round", endRoundTxHash);
   await printRoundInfo(connection, roundPubkey);
 
   // init project 1 withdraw receiver
-  let { playerTokenHolderPubkey: project1WithdrawReceiverPubkey } =
-    await InitPlayer(
-      connection,
-      feePayer,
-      await connection.getMinimumBalanceForRentExemption(
-        SPLToken.AccountLayout.span
-      )
-    );
-  console.log("=> Init Project 1 Token Receiver");
-  await printTokenAccount(
+  let { playerTokenHolderPubkey: project1WithdrawReceiverPubkey } = await InitPlayer(
     connection,
     feePayer,
-    project1WithdrawReceiverPubkey,
-    "Project 1 Token Receiver"
+    await connection.getMinimumBalanceForRentExemption(SPLToken.AccountLayout.span)
   );
+  console.log("=> Init Project 1 Token Receiver");
+  await printTokenAccount(connection, feePayer, project1WithdrawReceiverPubkey, "Project 1 Token Receiver");
 
   // init project 2 withdraw receiver
-  let { playerTokenHolderPubkey: project2WithdrawReceiverPubkey } =
-    await InitPlayer(
-      connection,
-      feePayer,
-      await connection.getMinimumBalanceForRentExemption(
-        SPLToken.AccountLayout.span
-      )
-    );
-  console.log("=> Init Project 2 Token Receiver");
-  await printTokenAccount(
+  let { playerTokenHolderPubkey: project2WithdrawReceiverPubkey } = await InitPlayer(
     connection,
     feePayer,
-    project2WithdrawReceiverPubkey,
-    "Project 2 Token Receiver"
+    await connection.getMinimumBalanceForRentExemption(SPLToken.AccountLayout.span)
   );
+  console.log("=> Init Project 2 Token Receiver");
+  await printTokenAccount(connection, feePayer, project2WithdrawReceiverPubkey, "Project 2 Token Receiver");
 
   // init owner withdraw receiver
-  let { playerTokenHolderPubkey: roundOwnerWithdrawReceiverPubkey } =
-    await InitPlayer(
-      connection,
-      feePayer,
-      await connection.getMinimumBalanceForRentExemption(
-        SPLToken.AccountLayout.span
-      )
-    );
-  console.log("=> Init Round Owner Token Receiver");
-  await printTokenAccount(
+  let { playerTokenHolderPubkey: roundOwnerWithdrawReceiverPubkey } = await InitPlayer(
     connection,
     feePayer,
-    roundOwnerWithdrawReceiverPubkey,
-    "Round Owner Token Receiver"
+    await connection.getMinimumBalanceForRentExemption(SPLToken.AccountLayout.span)
   );
+  console.log("=> Init Round Owner Token Receiver");
+  await printTokenAccount(connection, feePayer, roundOwnerWithdrawReceiverPubkey, "Round Owner Token Receiver");
 
   let { txHash: project1WithdrawTxHash } = await Withdraw(
     connection,
@@ -298,7 +247,7 @@ async function main() {
     QFProgramID,
     roundPubkey,
     vaultPubkey,
-    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    await getVaultOwnerPubkey(roundPubkey, QFProgramID),
     project1Pubkey,
     project1Owner,
     project1WithdrawReceiverPubkey
@@ -307,12 +256,7 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project1Pubkey);
   await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
-  await printTokenAccount(
-    connection,
-    feePayer,
-    project1WithdrawReceiverPubkey,
-    "Project 1 Token Receiver"
-  );
+  await printTokenAccount(connection, feePayer, project1WithdrawReceiverPubkey, "Project 1 Token Receiver");
 
   let { txHash: withdrawFee1TxHash } = await WithdrawFee(
     connection,
@@ -321,7 +265,7 @@ async function main() {
     roundPubkey,
     roundOwner,
     vaultPubkey,
-    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    await getVaultOwnerPubkey(roundPubkey, QFProgramID),
     roundOwnerWithdrawReceiverPubkey
   );
   console.log("=> Withdraw Fee", withdrawFee1TxHash);
@@ -334,7 +278,7 @@ async function main() {
     QFProgramID,
     roundPubkey,
     vaultPubkey,
-    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    await getVaultOwnerPubkey(roundPubkey, QFProgramID),
     project2Pubkey,
     project2Owner,
     project2WithdrawReceiverPubkey
@@ -344,12 +288,7 @@ async function main() {
   await printRoundInfo(connection, roundPubkey);
   await printProjectInfo(connection, project2Pubkey);
   await printTokenAccount(connection, feePayer, vaultPubkey, "Round Vault");
-  await printTokenAccount(
-    connection,
-    feePayer,
-    project2WithdrawReceiverPubkey,
-    "Project 2 Token Receiver"
-  );
+  await printTokenAccount(connection, feePayer, project2WithdrawReceiverPubkey, "Project 2 Token Receiver");
 
   let { txHash: withdrawFee2TxHash } = await WithdrawFee(
     connection,
@@ -358,7 +297,7 @@ async function main() {
     roundPubkey,
     roundOwner,
     vaultPubkey,
-    await getVaultOwnerPubkey(roundOwner.publicKey, QFProgramID),
+    await getVaultOwnerPubkey(roundPubkey, QFProgramID),
     roundOwnerWithdrawReceiverPubkey
   );
   console.log("=> Withdraw Fee", withdrawFee2TxHash);
@@ -388,8 +327,11 @@ enum Instruction {
 function createStartRoundInstruction(
   programId: PublicKey,
   newRoundPubkey: PublicKey,
-  ownerPubkey: PublicKey,
-  vaultPubkey: PublicKey
+  roundOwnerPubkey: PublicKey,
+  funderPubkey: PublicKey,
+  associatedTokenAccountPubkey: PublicKey,
+  walletAccountPubkey: PublicKey,
+  mintPubkey: PublicKey
 ): TransactionInstruction {
   const dataLayout = BufferLayout.struct([BufferLayout.u8("instruction")]);
 
@@ -408,12 +350,42 @@ function createStartRoundInstruction(
       isWritable: true,
     },
     {
-      pubkey: ownerPubkey,
+      pubkey: roundOwnerPubkey,
       isSigner: false,
       isWritable: false,
     },
     {
-      pubkey: vaultPubkey,
+      pubkey: SPLToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: funderPubkey,
+      isSigner: true,
+      isWritable: true,
+    },
+    {
+      pubkey: associatedTokenAccountPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: walletAccountPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: mintPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: SystemProgram.programId,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: SPLToken.TOKEN_PROGRAM_ID,
       isSigner: false,
       isWritable: false,
     },
@@ -835,11 +807,8 @@ function withdrawFeeInstruction(
   });
 }
 
-async function getVaultOwnerPubkey(
-  owner: PublicKey,
-  programId: PublicKey
-): Promise<PublicKey> {
-  let [pda] = await PublicKey.findProgramAddress([owner.toBuffer()], programId);
+async function getVaultOwnerPubkey(round: PublicKey, programId: PublicKey): Promise<PublicKey> {
+  let [pda] = await PublicKey.findProgramAddress([round.toBuffer()], programId);
   return pda;
 }
 
@@ -848,27 +817,19 @@ async function getVoterPubkey(
   voterTokenAccountPubkey: PublicKey,
   programId: PublicKey
 ): Promise<PublicKey> {
-  let [pda] = await PublicKey.findProgramAddress(
-    [project.toBuffer(), voterTokenAccountPubkey.toBuffer()],
-    programId
-  );
+  let [pda] = await PublicKey.findProgramAddress([project.toBuffer(), voterTokenAccountPubkey.toBuffer()], programId);
   return pda;
 }
 
-async function CreateNewRound(
-  connection: Connection,
-  feePayer: Account,
-  programId: PublicKey
-): Promise<any> {
+async function CreateNewRound(connection: Connection, feePayer: Account, programId: PublicKey): Promise<any> {
   let owner = await newAccountWithLamports(connection, 10000000000);
-  let vault = new Account();
-  const vaultRentExemption = await connection.getMinimumBalanceForRentExemption(
-    SPLToken.AccountLayout.span
-  );
-  let vaultOwnerPubkey = await getVaultOwnerPubkey(owner.publicKey, programId);
   let round = new Account();
-  const roundRentExemption = await connection.getMinimumBalanceForRentExemption(
-    RoundAccountDataLayout.span
+  let vaultOwnerPubkey = await getVaultOwnerPubkey(round.publicKey, programId);
+  let vaultPubkey = await SPLToken.Token.getAssociatedTokenAddress(
+    SPLToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+    SPLToken.TOKEN_PROGRAM_ID,
+    SPLToken.NATIVE_MINT,
+    vaultOwnerPubkey
   );
 
   const tx = new Transaction()
@@ -876,51 +837,32 @@ async function CreateNewRound(
       SystemProgram.createAccount({
         fromPubkey: owner.publicKey,
         newAccountPubkey: round.publicKey,
-        lamports: roundRentExemption,
+        lamports: await connection.getMinimumBalanceForRentExemption(RoundAccountDataLayout.span),
         space: RoundAccountDataLayout.span,
         programId: programId,
       })
-    )
-    .add(
-      SystemProgram.createAccount({
-        fromPubkey: owner.publicKey,
-        newAccountPubkey: vault.publicKey,
-        lamports: vaultRentExemption,
-        space: SPLToken.AccountLayout.span,
-        programId: SPLToken.TOKEN_PROGRAM_ID,
-      })
-    )
-    .add(
-      SPLToken.Token.createInitAccountInstruction(
-        SPLToken.TOKEN_PROGRAM_ID,
-        SPLToken.NATIVE_MINT,
-        vault.publicKey,
-        vaultOwnerPubkey
-      )
     )
     .add(
       createStartRoundInstruction(
         programId,
         round.publicKey,
         owner.publicKey,
-        vault.publicKey
+        owner.publicKey,
+        vaultPubkey,
+        vaultOwnerPubkey,
+        SPLToken.NATIVE_MINT
       )
     );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, owner, round, vault],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, owner, round], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
     owner: owner,
-    vaultPubkey: vault.publicKey,
+    vaultPubkey: vaultPubkey,
     roundPubkey: round.publicKey,
   };
 }
@@ -933,30 +875,15 @@ async function InitVoter(
   voterTokenAccountPubkey: PublicKey,
   programId: PublicKey
 ): Promise<any> {
-  let voterPubkey = await getVoterPubkey(
-    projectPubkey,
-    voterTokenAccountPubkey,
-    programId
-  );
+  let voterPubkey = await getVoterPubkey(projectPubkey, voterTokenAccountPubkey, programId);
   const tx = new Transaction().add(
-    initVoterInstruction(
-      programId,
-      voterPubkey,
-      voterTokenAccountPubkey,
-      projectPubkey,
-      from.publicKey
-    )
+    initVoterInstruction(programId, voterPubkey, voterTokenAccountPubkey, projectPubkey, from.publicKey)
   );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, from],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, from], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -978,31 +905,17 @@ async function RegisterProject(
       SystemProgram.createAccount({
         fromPubkey: feePayer.publicKey,
         newAccountPubkey: project.publicKey,
-        lamports: await connection.getMinimumBalanceForRentExemption(
-          ProjectAccountDataLayout.span
-        ),
+        lamports: await connection.getMinimumBalanceForRentExemption(ProjectAccountDataLayout.span),
         space: ProjectAccountDataLayout.span,
         programId: programId,
       })
     )
-    .add(
-      registerProjectInstruction(
-        programId,
-        project.publicKey,
-        roundPubkey,
-        owner.publicKey
-      )
-    );
+    .add(registerProjectInstruction(programId, project.publicKey, roundPubkey, owner.publicKey));
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, project],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, project], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1024,27 +937,13 @@ async function Donate(
   decimals: number
 ): Promise<any> {
   const tx = new Transaction().add(
-    donateInstruction(
-      programId,
-      roundPubkey,
-      fromPubkey,
-      mintPubkey,
-      toPubkey,
-      fromAuth.publicKey,
-      amount,
-      decimals
-    )
+    donateInstruction(programId, roundPubkey, fromPubkey, mintPubkey, toPubkey, fromAuth.publicKey, amount, decimals)
   );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, fromAuth],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, fromAuth], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1080,15 +979,10 @@ async function Vote(
     )
   );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, fromAuth],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, fromAuth], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1118,15 +1012,10 @@ async function Withdraw(
     )
   );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, projectOwner],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, projectOwner], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1139,9 +1028,7 @@ async function EndRound(
   owner: Account,
   programId: PublicKey
 ): Promise<any> {
-  const tx = new Transaction().add(
-    endRoundInstruction(programId, roundPubkey, owner.publicKey)
-  );
+  const tx = new Transaction().add(endRoundInstruction(programId, roundPubkey, owner.publicKey));
 
   let txHash = await sendAndConfirmTransaction(connection, tx, [owner], {
     commitment: "singleGossip",
@@ -1164,25 +1051,13 @@ async function WithdrawFee(
   toPubkey: PublicKey
 ): Promise<any> {
   const tx = new Transaction().add(
-    withdrawFeeInstruction(
-      programId,
-      roundPubkey,
-      owner.publicKey,
-      vaultPubkey,
-      vaultOwnerPubkey,
-      toPubkey
-    )
+    withdrawFeeInstruction(programId, roundPubkey, owner.publicKey, vaultPubkey, vaultOwnerPubkey, toPubkey)
   );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, owner],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, owner], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1207,10 +1082,7 @@ const RoundAccountDataLayout = BufferLayout.struct([
   BufferLayout.blob(32, "area"),
 ]);
 
-async function printRoundInfo(
-  connection: Connection,
-  round: PublicKey
-): Promise<void> {
+async function printRoundInfo(connection: Connection, round: PublicKey): Promise<void> {
   let info = await getRoundInfo(connection, round);
   console.log("================ Round ================");
   console.log("round:", round.toBase58());
@@ -1223,10 +1095,7 @@ async function printRoundInfo(
   console.log("");
 }
 
-async function getRoundInfo(
-  connection: Connection,
-  round: PublicKey
-): Promise<Round> {
+async function getRoundInfo(connection: Connection, round: PublicKey): Promise<Round> {
   const info = await connection.getAccountInfo(round);
   if (info === null) {
     throw new Error("Failed to find");
@@ -1261,10 +1130,7 @@ const ProjectAccountDataLayout = BufferLayout.struct([
   BufferLayout.blob(32, "area_sqrt"),
 ]);
 
-async function getProjectInfo(
-  connection: Connection,
-  project: PublicKey
-): Promise<Project> {
+async function getProjectInfo(connection: Connection, project: PublicKey): Promise<Project> {
   const info = await connection.getAccountInfo(project);
   if (info === null) {
     throw new Error("Failed to find");
@@ -1282,11 +1148,7 @@ async function getProjectInfo(
   return projectInfo;
 }
 
-async function printProjectInfo(
-  connection: Connection,
-  project: PublicKey,
-  title = "Project"
-): Promise<void> {
+async function printProjectInfo(connection: Connection, project: PublicKey, title = "Project"): Promise<void> {
   let info = await getProjectInfo(connection, project);
   console.log("================", title, "================");
   console.log("project:", project.toBase58());
@@ -1310,10 +1172,7 @@ const VoterAccountDataLayout = BufferLayout.struct([
   BufferLayout.blob(8, "votes_sqrt"),
 ]);
 
-async function getVoterInfo(
-  connection: Connection,
-  voter: PublicKey
-): Promise<Voter> {
+async function getVoterInfo(connection: Connection, voter: PublicKey): Promise<Voter> {
   const info = await connection.getAccountInfo(voter);
   if (info === null) {
     throw new Error("Failed to find");
@@ -1328,11 +1187,7 @@ async function getVoterInfo(
   return voterInfo;
 }
 
-async function printVoterInfo(
-  connection: Connection,
-  voter: PublicKey,
-  title = "Voter"
-): Promise<void> {
+async function printVoterInfo(connection: Connection, voter: PublicKey, title = "Voter"): Promise<void> {
   let info = await getVoterInfo(connection, voter);
   console.log("================", title, "================");
   console.log("voter:", voter.toBase58());
@@ -1348,12 +1203,7 @@ async function printTokenAccount(
   tokenAccountPubkey: PublicKey,
   title = "Token Account"
 ): Promise<void> {
-  let token = new SPLToken.Token(
-    connection,
-    SPLToken.NATIVE_MINT,
-    SPLToken.TOKEN_PROGRAM_ID,
-    feePayer
-  );
+  let token = new SPLToken.Token(connection, SPLToken.NATIVE_MINT, SPLToken.TOKEN_PROGRAM_ID, feePayer);
   let info = await token.getAccountInfo(tokenAccountPubkey);
   console.log("================", title, "================");
   console.log("token account:", tokenAccountPubkey.toBase58());
@@ -1361,11 +1211,7 @@ async function printTokenAccount(
   console.log("");
 }
 
-async function InitPlayer(
-  connection: Connection,
-  feePayer: Account,
-  initBalance = 1000000000
-): Promise<any> {
+async function InitPlayer(connection: Connection, feePayer: Account, initBalance = 1000000000): Promise<any> {
   let player = await newAccountWithLamports(connection, initBalance);
   let playerTokenHolder = new Account();
   const tx = new Transaction()
@@ -1387,15 +1233,10 @@ async function InitPlayer(
       )
     );
 
-  let txHash = await sendAndConfirmTransaction(
-    connection,
-    tx,
-    [feePayer, playerTokenHolder],
-    {
-      commitment: "singleGossip",
-      preflightCommitment: "singleGossip",
-    }
-  );
+  let txHash = await sendAndConfirmTransaction(connection, tx, [feePayer, playerTokenHolder], {
+    commitment: "singleGossip",
+    preflightCommitment: "singleGossip",
+  });
 
   return {
     txHash: txHash,
@@ -1404,18 +1245,9 @@ async function InitPlayer(
   };
 }
 
-async function DeployProgram(
-  connection: Connection,
-  feePayer: Account
-): Promise<PublicKey> {
+async function DeployProgram(connection: Connection, feePayer: Account): Promise<PublicKey> {
   const data = await fs.readFile("src/program/target/deploy/qf.so");
   const programAccount = new Account();
-  await BpfLoader.load(
-    connection,
-    feePayer,
-    programAccount,
-    data,
-    BPF_LOADER_PROGRAM_ID
-  );
+  await BpfLoader.load(connection, feePayer, programAccount, data, BPF_LOADER_PROGRAM_ID);
   return programAccount.publicKey;
 }

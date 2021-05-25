@@ -13,7 +13,7 @@ use solana_program::{
     program_error::{PrintProgramError, ProgramError},
     program_pack::{IsInitialized, Pack},
     pubkey::Pubkey,
-    system_instruction,
+    system_instruction, system_program,
     sysvar::{rent::Rent, Sysvar},
 };
 use spl_math::{
@@ -21,6 +21,7 @@ use spl_math::{
     uint::U256,
 };
 
+use spl_associated_token_account;
 use spl_token;
 
 pub struct Processor {}
@@ -29,36 +30,70 @@ impl Processor {
         let account_info_iter = &mut accounts.iter();
         let new_round_info = next_account_info(account_info_iter)?;
         let round_owner_info = next_account_info(account_info_iter)?;
-        let vault_info = next_account_info(account_info_iter)?;
-        let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
+        let associated_program_info = next_account_info(account_info_iter)?;
+        let funder_info = next_account_info(account_info_iter)?;
+        let associated_token_account_info = next_account_info(account_info_iter)?;
+        let wallet_account_info = next_account_info(account_info_iter)?;
+        let spl_token_mint_info = next_account_info(account_info_iter)?;
+        let system_program_info = next_account_info(account_info_iter)?;
+        let spl_token_program_info = next_account_info(account_info_iter)?;
+        let rent_sysvar_info = next_account_info(account_info_iter)?;
+        let rent = &Rent::from_account_info(rent_sysvar_info)?;
 
         if new_round_info.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
+        }
+        if new_round_info.data_len() != Round::LEN {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if !rent.is_exempt(new_round_info.lamports(), Round::LEN) {
+            return Err(ProgramError::AccountNotRentExempt);
         }
         let mut round = Round::unpack_unchecked(&new_round_info.data.borrow())?;
         if round.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
         }
 
-        if new_round_info.data_len() != Round::LEN {
-            return Err(ProgramError::InvalidAccountData);
+        if associated_program_info.key != &spl_associated_token_account::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
         }
 
-        if !rent.is_exempt(new_round_info.lamports(), Round::LEN) {
-            return Err(ProgramError::AccountNotRentExempt);
-        }
-
-        let (pda, _) =
-            Pubkey::find_program_address(&[&round_owner_info.key.to_bytes()], &program_id);
-        let vault = spl_token::state::Account::unpack(&vault_info.data.borrow())?;
-        if vault.owner != pda {
+        let (expected_wallet, _) =
+            Pubkey::find_program_address(&[&new_round_info.key.to_bytes()], &program_id);
+        if wallet_account_info.key != &expected_wallet {
             return Err(QFError::OwnerMismatch.into());
         }
 
+        if system_program_info.key != &system_program::ID {
+            return Err(QFError::UnexpectedSystemProgramID.into());
+        }
+
+        if spl_token_program_info.key != &spl_token::ID {
+            return Err(QFError::UnexpectedTokenProgramID.into());
+        }
+
+        invoke(
+            &spl_associated_token_account::create_associated_token_account(
+                funder_info.key,
+                wallet_account_info.key,
+                spl_token_mint_info.key,
+            ),
+            &[
+                associated_program_info.clone(),
+                funder_info.clone(),
+                associated_token_account_info.clone(),
+                wallet_account_info.clone(),
+                spl_token_mint_info.clone(),
+                system_program_info.clone(),
+                spl_token_program_info.clone(),
+                rent_sysvar_info.clone(),
+            ],
+        )?;
+
         round.status = RoundStatus::Ongoing;
-        round.fund = vault.amount;
+        round.fund = 0;
         round.owner = *round_owner_info.key;
-        round.vault = *vault_info.key;
+        round.vault = *associated_token_account_info.key;
         round.area = U256::zero();
 
         Round::pack(round, &mut new_round_info.data.borrow_mut())?;
@@ -389,8 +424,8 @@ impl Processor {
         }
 
         let seeds: &[&[_]] = &[
-            &round.owner.to_bytes(),
-            &[Pubkey::find_program_address(&[&round.owner.to_bytes()], &program_id).1],
+            &round_info.key.to_bytes(),
+            &[Pubkey::find_program_address(&[&round_info.key.to_bytes()], &program_id).1],
         ];
 
         let fund = U256::from(round.fund);
@@ -499,8 +534,8 @@ impl Processor {
         }
 
         let seeds: &[&[_]] = &[
-            &round.owner.to_bytes(),
-            &[Pubkey::find_program_address(&[&round.owner.to_bytes()], &program_id).1],
+            &round_info.key.to_bytes(),
+            &[Pubkey::find_program_address(&[&round_info.key.to_bytes()], &program_id).1],
         ];
 
         invoke_signed(
@@ -578,7 +613,11 @@ impl PrintProgramError for QFError {
             QFError::VaultMismatch => msg!("vault does not match"),
             QFError::RoundMismatch => msg!("round does not match"),
             QFError::ProjectAlreadyWithdraw => msg!("project has already withdraw"),
+            QFError::UnexpectedSystemProgramID => msg!("unexpected system program id"),
             QFError::UnexpectedTokenProgramID => msg!("unexpected token program id"),
+            QFError::UnexpectedAssociatedTokenAccountProgram => {
+                msg!("unexpected asoociated token account program id")
+            }
             QFError::VoterMismatch => msg!("voter mismatch"),
         }
     }

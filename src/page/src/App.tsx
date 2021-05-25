@@ -23,17 +23,11 @@ export default () => {
     "DzDZWoTSgbh3NHRjDkH61CXbrNn7AY64ooFL6HnNiZm1" // FIXME: you need to deploy your own program and fill it
   );
 
-  const [connection, setConnection] = useState(
-    () => new Connection("http://localhost:8899")
-  );
-  const [wallet, setWallet] = useState(
-    () => new Wallet("https://www.sollet.io")
-  );
+  const [connection, setConnection] = useState(() => new Connection("http://localhost:8899"));
+  const [wallet, setWallet] = useState(() => new Wallet("https://www.sollet.io"));
   const [pubkey, setPubkey] = useState(PublicKey.default);
 
-  const [registerProjectRoundPubkey, setRegisterProjectRoundPubkey] = useState(
-    ""
-  );
+  const [registerProjectRoundPubkey, setRegisterProjectRoundPubkey] = useState("");
   const [voteProjectPubkey, setVoteProjectPubkey] = useState("");
   const [voteAmount, setVoteAmount] = useState("");
   const [initVoterProjectPubkey, setInitVoterProjectPubkey] = useState("");
@@ -99,49 +93,29 @@ export default () => {
 
   async function newRound() {
     try {
-      let vault = new Account();
-      let vaultOwnerPubkey = await getVaultOwnerPubkey(
-        wallet.publicKey,
-        programId
-      );
       let round = new Account();
+      let vaultOwnerPubkey = await getVaultOwnerPubkey(round.publicKey, programId);
+      let vaultPubkey = await getVaultPubkey(vaultOwnerPubkey, SPLToken.NATIVE_MINT)
+
       const tx = new Transaction()
         .add(
           SystemProgram.createAccount({
             fromPubkey: wallet.publicKey,
             newAccountPubkey: round.publicKey,
-            lamports: await connection.getMinimumBalanceForRentExemption(
-              RoundAccountDataLayout.span
-            ),
+            lamports: await connection.getMinimumBalanceForRentExemption(RoundAccountDataLayout.span),
             space: RoundAccountDataLayout.span,
             programId: programId,
           })
-        )
-        .add(
-          SystemProgram.createAccount({
-            fromPubkey: wallet.publicKey,
-            newAccountPubkey: vault.publicKey,
-            lamports: await connection.getMinimumBalanceForRentExemption(
-              SPLToken.AccountLayout.span
-            ),
-            space: SPLToken.AccountLayout.span,
-            programId: SPLToken.TOKEN_PROGRAM_ID,
-          })
-        )
-        .add(
-          SPLToken.Token.createInitAccountInstruction(
-            SPLToken.TOKEN_PROGRAM_ID,
-            SPLToken.NATIVE_MINT,
-            vault.publicKey,
-            vaultOwnerPubkey
-          )
         )
         .add(
           createStartRoundInstruction(
             programId,
             round.publicKey,
             wallet.publicKey,
-            vault.publicKey
+            wallet.publicKey,
+            vaultPubkey,
+            vaultOwnerPubkey,
+            SPLToken.NATIVE_MINT
           )
         );
 
@@ -150,13 +124,14 @@ export default () => {
       tx.feePayer = wallet.publicKey;
 
       let signedTx = await wallet.signTransaction(tx);
-      signedTx.partialSign(round, vault);
+      signedTx.partialSign(round);
       let txid = await connection.sendRawTransaction(signedTx.serialize());
 
       appendOutput("wait for New Round");
       await connection.confirmTransaction(txid);
       appendOutput("new round pubkey: " + round.publicKey.toBase58());
     } catch (e) {
+      console.log(e)
       appendOutput("new round error:" + e.message);
     }
   }
@@ -171,21 +146,12 @@ export default () => {
           SystemProgram.createAccount({
             fromPubkey: wallet.publicKey,
             newAccountPubkey: project.publicKey,
-            lamports: await connection.getMinimumBalanceForRentExemption(
-              ProjectAccountDataLayout.span
-            ),
+            lamports: await connection.getMinimumBalanceForRentExemption(ProjectAccountDataLayout.span),
             space: ProjectAccountDataLayout.span,
             programId: programId,
           })
         )
-        .add(
-          registerProjectInstruction(
-            programId,
-            project.publicKey,
-            round,
-            wallet.publicKey
-          )
-        );
+        .add(registerProjectInstruction(programId, project.publicKey, round, wallet.publicKey));
 
       let { blockhash } = await connection.getRecentBlockhash();
       tx.recentBlockhash = blockhash;
@@ -213,10 +179,7 @@ export default () => {
           SystemProgram.createAccount({
             fromPubkey: wallet.publicKey,
             newAccountPubkey: tmpTokenAccount.publicKey,
-            lamports:
-              (await connection.getMinimumBalanceForRentExemption(
-                SPLToken.AccountLayout.span
-              )) + amount,
+            lamports: (await connection.getMinimumBalanceForRentExemption(SPLToken.AccountLayout.span)) + amount,
             space: SPLToken.AccountLayout.span,
             programId: SPLToken.TOKEN_PROGRAM_ID,
           })
@@ -275,11 +238,7 @@ export default () => {
         SPLToken.NATIVE_MINT,
         wallet.publicKey
       );
-      let voterPubkey = await getVoterPubkey(
-        new PublicKey(projectPubkey),
-        assoAccount,
-        programId
-      );
+      let voterPubkey = await getVoterPubkey(new PublicKey(projectPubkey), assoAccount, programId);
       let voterInfo = await getVoterInfo(voterPubkey.toBase58());
       if (voterInfo !== undefined && voterInfo.isInit) {
         appendOutput("voter: " + voterPubkey.toBase58() + " already init");
@@ -287,13 +246,7 @@ export default () => {
       }
 
       const tx = new Transaction().add(
-        initVoterInstruction(
-          programId,
-          voterPubkey,
-          assoAccount,
-          new PublicKey(projectPubkey),
-          wallet.publicKey
-        )
+        initVoterInstruction(programId, voterPubkey, assoAccount, new PublicKey(projectPubkey), wallet.publicKey)
       );
 
       let { blockhash } = await connection.getRecentBlockhash();
@@ -319,20 +272,10 @@ export default () => {
         SPLToken.NATIVE_MINT,
         wallet.publicKey
       );
-      let voterPubkey = await getVoterPubkey(
-        new PublicKey(projectPubkey),
-        assoAccount,
-        programId
-      );
+      let voterPubkey = await getVoterPubkey(new PublicKey(projectPubkey), assoAccount, programId);
       let voterInfo = await getVoterInfo(voterPubkey.toBase58());
       if (voterInfo === undefined || !voterInfo.isInit) {
-        appendOutput(
-          "please init voter for project " +
-            projectPubkey +
-            " first" +
-            "\n" +
-            output
-        );
+        appendOutput("please init voter for project " + projectPubkey + " first" + "\n" + output);
         return;
       }
 
@@ -353,10 +296,7 @@ export default () => {
             SystemProgram.createAccount({
               fromPubkey: wallet.publicKey,
               newAccountPubkey: tmpTokenAccount.publicKey,
-              lamports:
-                (await SPLToken.Token.getMinBalanceRentForExemptAccount(
-                  connection
-                )) + amount,
+              lamports: (await SPLToken.Token.getMinBalanceRentForExemptAccount(connection)) + amount,
               space: SPLToken.AccountLayout.span,
               programId: SPLToken.TOKEN_PROGRAM_ID,
             })
@@ -406,10 +346,7 @@ export default () => {
               SystemProgram.createAccount({
                 fromPubkey: wallet.publicKey,
                 newAccountPubkey: tmpTokenAccount.publicKey,
-                lamports:
-                  (await SPLToken.Token.getMinBalanceRentForExemptAccount(
-                    connection
-                  )) + amount,
+                lamports: (await SPLToken.Token.getMinBalanceRentForExemptAccount(connection)) + amount,
                 space: SPLToken.AccountLayout.span,
                 programId: SPLToken.TOKEN_PROGRAM_ID,
               })
@@ -483,7 +420,7 @@ export default () => {
     try {
       let projectInfo = await getProjectInfo(projectPubkey);
       let roundInfo = await getRoundInfo(projectInfo.round.toBase58());
-      let vaultOwner = await getVaultOwnerPubkey(roundInfo.owner, programId);
+      let vaultOwner = await getVaultOwnerPubkey(projectInfo.round, programId);
       const tx = new Transaction().add(
         withdrawInstruction(
           programId,
@@ -513,9 +450,7 @@ export default () => {
   async function endRound(roundPubkey: string) {
     try {
       let round = new PublicKey(roundPubkey);
-      const tx = new Transaction().add(
-        endRoundInstruction(programId, round, wallet.publicKey)
-      );
+      const tx = new Transaction().add(endRoundInstruction(programId, round, wallet.publicKey));
       let { blockhash } = await connection.getRecentBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
@@ -533,7 +468,7 @@ export default () => {
   async function withdrawFee(roundPubkey: string, toPubkey: string) {
     try {
       let roundInfo = await getRoundInfo(roundPubkey);
-      let vaultOwner = await getVaultOwnerPubkey(roundInfo.owner, programId);
+      let vaultOwner = await getVaultOwnerPubkey(new PublicKey(roundPubkey), programId);
       const tx = new Transaction().add(
         withdrawFeeInstruction(
           programId,
@@ -591,9 +526,7 @@ export default () => {
 
   async function getProjectInfo(projectPubkey: string) {
     try {
-      const info = await connection.getAccountInfo(
-        new PublicKey(projectPubkey)
-      );
+      const info = await connection.getAccountInfo(new PublicKey(projectPubkey));
       if (info === null) {
         console.log("Not a valid project info account");
         return;
@@ -651,9 +584,7 @@ export default () => {
         <h1>Connect Wallet</h1>
       </div>
       <button onClick={() => connectWallet()}>
-        {wallet.connected
-          ? "connect to:" + pubkey.toBase58()
-          : "connect wallet"}
+        {wallet.connected ? "connect to:" + pubkey.toBase58() : "connect wallet"}
       </button>
       <div>
         <h1>Instruction</h1>
@@ -677,11 +608,7 @@ export default () => {
               onChange={(v) => setDonateAmount(v.target.value)}
               placeholder="amount"
             ></input>
-            <button
-              onClick={() => donate(donateRoundPubkey, parseInt(donateAmount))}
-            >
-              Donate
-            </button>
+            <button onClick={() => donate(donateRoundPubkey, parseInt(donateAmount))}>Donate</button>
           </div>
           <div>
             <input
@@ -690,9 +617,7 @@ export default () => {
               onChange={(v) => setRegisterProjectRoundPubkey(v.target.value)}
               placeholder="round pubkey (base58)"
             ></input>
-            <button onClick={() => registerProject(registerProjectRoundPubkey)}>
-              Register New Project
-            </button>
+            <button onClick={() => registerProject(registerProjectRoundPubkey)}>Register New Project</button>
           </div>
           <div>
             <input
@@ -701,9 +626,7 @@ export default () => {
               onChange={(v) => setInitVoterProjectPubkey(v.target.value)}
               placeholder="project pubkey (base58)"
             ></input>
-            <button onClick={() => initVoter(initVoterProjectPubkey)}>
-              Init Voter
-            </button>
+            <button onClick={() => initVoter(initVoterProjectPubkey)}>Init Voter</button>
           </div>
           <div>
             <input
@@ -719,11 +642,7 @@ export default () => {
               onChange={(v) => setVoteAmount(v.target.value)}
               placeholder="amount"
             ></input>
-            <button
-              onClick={() => vote(voteProjectPubkey, parseInt(voteAmount))}
-            >
-              Vote
-            </button>
+            <button onClick={() => vote(voteProjectPubkey, parseInt(voteAmount))}>Vote</button>
           </div>
           <div>
             <input
@@ -738,11 +657,7 @@ export default () => {
               onChange={(v) => setWithdrawToPubkey(v.target.value)}
               placeholder="to pubkey (base58)"
             ></input>
-            <button
-              onClick={() => withdraw(withdrawProjectPubkey, withdrawToPubkey)}
-            >
-              Withdraw
-            </button>
+            <button onClick={() => withdraw(withdrawProjectPubkey, withdrawToPubkey)}>Withdraw</button>
           </div>
           <div>
             <input
@@ -751,9 +666,7 @@ export default () => {
               onChange={(v) => setCloseRoundPubkey(v.target.value)}
               placeholder="round pubkey (base58)"
             ></input>
-            <button onClick={() => endRound(closeRoundPubkey)}>
-              End Round
-            </button>
+            <button onClick={() => endRound(closeRoundPubkey)}>End Round</button>
           </div>
           <div>
             <input
@@ -768,11 +681,7 @@ export default () => {
               onChange={(v) => setWithdrawToPubkey(v.target.value)}
               placeholder="to pubkey (base58)"
             ></input>
-            <button
-              onClick={() => withdrawFee(withdrawFeeRoundPubkey, withdrawFeeToPubkey)}
-            >
-              Withdraw Fee
-            </button>
+            <button onClick={() => withdrawFee(withdrawFeeRoundPubkey, withdrawFeeToPubkey)}>Withdraw Fee</button>
           </div>
         </div>
       ) : (
@@ -782,14 +691,8 @@ export default () => {
         <h1>Query</h1>
       </div>
       <div>
-        <input
-          type="text"
-          value={getRoundInfoPubkey}
-          onChange={(v) => setGetRoundInfoPubkey(v.target.value)}
-        ></input>
-        <button onClick={() => getRoundInfo(getRoundInfoPubkey)}>
-          get round info
-        </button>
+        <input type="text" value={getRoundInfoPubkey} onChange={(v) => setGetRoundInfoPubkey(v.target.value)}></input>
+        <button onClick={() => getRoundInfo(getRoundInfoPubkey)}>get round info</button>
       </div>
       <div>
         <input
@@ -797,19 +700,11 @@ export default () => {
           value={getProjectInfoPubkey}
           onChange={(v) => setGetProjectInfoPubkey(v.target.value)}
         ></input>
-        <button onClick={() => getProjectInfo(getProjectInfoPubkey)}>
-          get project info
-        </button>
+        <button onClick={() => getProjectInfo(getProjectInfoPubkey)}>get project info</button>
       </div>
       <div>
-        <input
-          type="text"
-          value={getVoterInfoPubkey}
-          onChange={(v) => setGetVoterInfoPubkey(v.target.value)}
-        ></input>
-        <button onClick={() => getVoterInfo(getVoterInfoPubkey)}>
-          get voter info
-        </button>
+        <input type="text" value={getVoterInfoPubkey} onChange={(v) => setGetVoterInfoPubkey(v.target.value)}></input>
+        <button onClick={() => getVoterInfo(getVoterInfoPubkey)}>get voter info</button>
       </div>
       <div>
         <h1>Output</h1>
@@ -839,8 +734,11 @@ enum Instruction {
 function createStartRoundInstruction(
   programId: PublicKey,
   newRoundPubkey: PublicKey,
-  ownerPubkey: PublicKey,
-  vaultPubkey: PublicKey
+  roundOwnerPubkey: PublicKey,
+  funderPubkey: PublicKey,
+  associatedTokenAccountPubkey: PublicKey,
+  walletAccountPubkey: PublicKey,
+  mintPubkey: PublicKey
 ): TransactionInstruction {
   const dataLayout = BufferLayout.struct([BufferLayout.u8("instruction")]);
 
@@ -859,12 +757,42 @@ function createStartRoundInstruction(
       isWritable: true,
     },
     {
-      pubkey: ownerPubkey,
+      pubkey: roundOwnerPubkey,
       isSigner: false,
       isWritable: false,
     },
     {
-      pubkey: vaultPubkey,
+      pubkey: SPLToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: funderPubkey,
+      isSigner: true,
+      isWritable: true,
+    },
+    {
+      pubkey: associatedTokenAccountPubkey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: walletAccountPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: mintPubkey,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: SystemProgram.programId,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: SPLToken.TOKEN_PROGRAM_ID,
       isSigner: false,
       isWritable: false,
     },
@@ -1286,12 +1214,18 @@ function withdrawFeeInstruction(
   });
 }
 
-async function getVaultOwnerPubkey(
-  owner: PublicKey,
-  programId: PublicKey
-): Promise<PublicKey> {
-  let [pda] = await PublicKey.findProgramAddress([owner.toBuffer()], programId);
+async function getVaultOwnerPubkey(round: PublicKey, programId: PublicKey): Promise<PublicKey> {
+  let [pda] = await PublicKey.findProgramAddress([round.toBuffer()], programId);
   return pda;
+}
+
+async function getVaultPubkey(owner: PublicKey, mint: PublicKey): Promise<PublicKey> {
+  return (
+    await PublicKey.findProgramAddress(
+      [owner.toBuffer(), SPLToken.TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+      SPLToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+    )
+  )[0]
 }
 
 async function getVoterPubkey(
@@ -1299,9 +1233,6 @@ async function getVoterPubkey(
   voterTokenAccountPubkey: PublicKey,
   programId: PublicKey
 ): Promise<PublicKey> {
-  let [pda] = await PublicKey.findProgramAddress(
-    [project.toBuffer(), voterTokenAccountPubkey.toBuffer()],
-    programId
-  );
+  let [pda] = await PublicKey.findProgramAddress([project.toBuffer(), voterTokenAccountPubkey.toBuffer()], programId);
   return pda;
 }
